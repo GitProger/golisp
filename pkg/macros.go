@@ -1,0 +1,200 @@
+package lisp
+
+import (
+	"fmt"
+)
+
+func init() {
+	registerMacros(Global)
+}
+
+type (
+	Quasiquoted     struct{ boxed any }
+	Unquoted        struct{ boxed any }
+	UnquotedSpliced struct{ boxed any }
+)
+
+func (u Unquoted) String() string        { return "," + toStr(u.boxed) } // or (unquote + ... + )
+func (u UnquotedSpliced) String() string { return ",@" + toStr(u.boxed) }
+func (q Quasiquoted) String() string     { return "`" + toStr(q.boxed) }
+
+func (q Quasiquoted) Exec(ctx *LocalScope) any {
+	return q.Substitute(ctx)
+}
+
+func checkQuasi(ctx *LocalScope) {
+	if val, ok := ctx.Get("__quasi"); !ok || !val.(bool) {
+		panic("unquote out of quasiquote expression")
+	}
+}
+
+func (a Unquoted) Exec(ctx *LocalScope) any {
+	checkQuasi(ctx)
+	ctx.Set("__quasi", false)
+	defer ctx.Set("__quasi", true)
+	res := ExprOfAny(a.boxed).Exec(ctx)
+	// for, for instance: `(x y z ... ,a ,b); so ,b is correct, but if we set __quasi to false in ,a it fails
+	return res
+}
+
+func (a UnquotedSpliced) Exec(ctx *LocalScope) any {
+	return Unquoted(a).Exec(ctx)
+}
+
+func (s Expr) Substitute(ctx *LocalScope) Expr {
+	if s.isSExpr {
+		return ExprOfAny( // q.boxed:(x y z ... ,a ...)
+			MapConsUnfold(func(a any) (any, bool) {
+				// fmt.Printf("map : %20s %s\n", TypeOf(a), a)
+				switch t := a.(type) {
+				case Unquoted:
+					return t.Exec(ctx), false
+				case UnquotedSpliced:
+					// << map .exec(ctx) t.boxed >>
+					return t.Exec(ctx), true
+				default:
+					return ExprOfAny(t).Substitute(ctx), false
+				}
+			}, s.sexp),
+		)
+	} else if u, ok := s.atom.(Unquoted); ok {
+		return ExprOfAny(u.Exec(ctx))
+	} else {
+		return ExprOfAny(s.atom)
+	}
+}
+
+func (q Quasiquoted) Substitute(ctx *LocalScope) Expr {
+	ctx.Set("__quasi", true)
+	if s, ok := q.boxed.(Expr); ok {
+		return s.Substitute(ctx)
+	} else if u, ok := q.boxed.(Unquoted); ok {
+		return ExprOfAny(u.Exec(ctx))
+	} else {
+		return ExprOfAny(q.boxed)
+	}
+}
+
+func Quasiquote(subj any) Quasiquoted { // `(...) / `a  ?
+	return Quasiquoted{boxed: ExprOfAny(subj)}
+}
+
+func Unquote(subj any) Unquoted { // ,(...) / ,a
+	// return ExprOfAny(subj.Exec(ctx)) // bad, what to do anologically with unquote-splicing?
+	return Unquoted{boxed: subj}
+}
+
+func UnquoteSplicing(subj any) UnquotedSpliced { // ,@(...) / ,@a
+	return UnquotedSpliced{boxed: subj}
+}
+
+func Macroexpand(syntax Expr) Expr {
+	if syntax.isSExpr {
+		fmt.Println("EXPAND", syntax)
+		panic("not quasiquote")
+	} else if q, ok := syntax.atom.(Quasiquoted); ok {
+		return q.Substitute(Global)
+	} else {
+		return syntax
+	}
+}
+
+func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
+	return Func{
+		macro: true,
+		args:  argNames,
+		code:  es,
+		// ast traversal
+		fn: func(callCtx *LocalScope, args Pair) any { // like lambda
+			newCtx := defCtx.Sub()
+			cons := args
+			// fmt.Println(argNames, "<-", args)
+			// return Macroexpand(ExprOfAny(args)).Exec(newCtx)
+
+			if argNames.isSExpr { // (lambda (a b . c) ...)
+				// fmt.Println("Branch 1")
+				var args any = argNames.sexp // maybe nil
+				for ; IsCons(args) && !IsNil(args); args, cons = args.(Pair).Cdr(), PairOf(cons.Cdr()) {
+					newCtx.Set(args.(Pair).Car().(Atomic), cons.Car())
+				}
+
+				if !IsCons(args) && args != nil {
+					newCtx.Set(args.(Atomic), cons)
+					cons = nil
+				} else if !IsNil(args) { // cdr not nil (a b c . d) args
+					newCtx.Set(args.(Pair).Cdr().(Atomic), cons.Cdr())
+					cons = nil
+				}
+
+				if cons != nil {
+					panic("too many arguments")
+				}
+			} else if argNames.atom != nil { // (lambda x ...)
+				// fmt.Println("Branch 2")
+				// argNames.atom == nil in case of (lambda () ...) or (lambda nil ...)
+				newCtx.Set(argNames.atom.(Atomic), cons)
+			}
+
+			// fmt.Println(newCtx)
+			var res any
+			for _, e := range es {
+				// fmt.Println("to run:", e)
+				res = e.Exec(newCtx)
+				// fmt.Println("res ->", res)
+			}
+			// fmt.Println("built")
+
+			return res.(Executor).Exec(newCtx)
+		},
+	}
+}
+
+func Defmacro(ctx *LocalScope, name Atomic, argNames Expr, es ...Expr) {
+	ctx.Set(name, Macro(ctx, argNames, es...))
+}
+
+func registerMacros(global *LocalScope) {
+	global.Set("defmacro", Func{ // (defmacro name (params...) code...)
+		macro: true,
+		fn: func(ls *LocalScope, p Pair) any {
+			// eval generated code from macroexpand
+			/// return Macroexpand(ExprOfAny(p)).Exec(ls)
+			args := PairOf(p.Cdr())
+			var es []Expr
+			argList := args.Car()
+			for code := args.Cdr().(Pair); code != nil; code = PairOf(code.Cdr()) {
+				es = append(es, ExprOfAny(code.Car()))
+			}
+			Defmacro(ls, p.Car().(Atomic), ExprOfAny(argList), es...)
+			return nil
+		},
+	})
+
+	global.Set("macroexpand", Func{
+		args: ExprOfAny(ConsList[Atomic]("code")),
+		fn: func(ls *LocalScope, p Pair) any {
+			return Macroexpand(ExprOfAny(p.Car().(*ConsCell)))
+		},
+	})
+
+	global.Set("unquote", Func{
+		macro: true,
+		fn: func(ls *LocalScope, p Pair) any {
+			return Unquoted{ExprOfAny(p.Car().(*ConsCell))}
+		},
+	})
+
+	global.Set("unquote-splicing", Func{
+		macro: true,
+		fn: func(ls *LocalScope, p Pair) any {
+			return UnquotedSpliced{ExprOfAny(p.Car().(*ConsCell))}
+		},
+	})
+
+	global.Set("quasiquote", Func{
+		macro: true,
+		fn: func(ls *LocalScope, p Pair) any {
+			return Quasiquote(p.Car())
+		},
+	})
+}
