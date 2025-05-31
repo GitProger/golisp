@@ -1,9 +1,5 @@
 package main
 
-// https://www.gnu.org/software/emacs/manual/html_node/elisp/Evaluation.html
-// https://www.gnu.org/software/emacs/manual/html_node/elisp/Quoting.html
-// https://www.gnu.org/software/emacs/manual/html_node/elisp/Self_002dEvaluating-Forms.html
-
 import (
 	"bufio"
 	"context"
@@ -16,7 +12,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 func logo() {
@@ -27,38 +22,6 @@ func logo() {
 	fmt.Println("  G   G O   O     S C     H   H E     M   M E      ")
 	fmt.Println("   GGG   OOO   SSS   CCCC H   H EEEEE M   M EEEEE  ")
 	fmt.Println("                                                   ")
-}
-
-func errprintf(format string, args ...any) (int, error) {
-	return fmt.Fprintf(os.Stderr, format, args...)
-}
-
-var _ = cp
-
-func cp(i int) {
-	fmt.Println("CHECKPOINT", i)
-}
-
-func makeErr(v any) error {
-	if err, ok := v.(error); ok {
-		return err
-	} else {
-		return fmt.Errorf("%v", v)
-	}
-}
-
-// func () any { return f(a, b, c ...) }
-func SyncOn(l sync.Locker, proc func() any) (res any, err error) {
-	l.Lock()
-	defer func() {
-		if r := recover(); r != nil {
-			l.Unlock()
-			err = makeErr(r)
-		}
-	}()
-	res = proc()
-	l.Unlock()
-	return
 }
 
 func InterpretFile(scope *lisp.LocalScope, path string) error {
@@ -146,6 +109,7 @@ func main() {
 			return Interpret(context.Background(), lisp.Global, in, nil, false)
 		}
 	})
+
 	if err != nil {
 		fmt.Println("error while loading the library: ", err)
 		os.Exit(1)
