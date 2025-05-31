@@ -3,6 +3,9 @@ package parsing
 type BaseParser struct {
 	source CharSource
 	ch     rune // = -1
+
+	// async bool
+	// init  chan struct{}
 }
 
 const END rune = 0
@@ -17,7 +20,28 @@ func NewBaseParser(cs CharSource) *BaseParser {
 	return r
 }
 
+// func NewAsyncBaseParser(cs CharSource) *BaseParser {
+// 	r := &BaseParser{source: cs, async: true}
+// 	// go r.TakeNext()
+// 	go asyncInit(r)
+// 	return r
+// }
+
+// func asyncInit(bp *BaseParser) {
+// 	bp.init = make(chan struct{})
+// 	if bp.source.HasNext() {
+// 		bp.ch = bp.source.Next()
+// 	} else {
+// 		bp.ch = END
+// 	}
+// 	close(bp.init)
+// }
+
 func (bp *BaseParser) TakeNext() rune { // Take
+	// if bp.async {
+	// 	<-bp.init
+	// }
+
 	result := bp.ch
 	if bp.source.HasNext() {
 		bp.ch = bp.source.Next()
@@ -70,4 +94,8 @@ func (bp *BaseParser) From(src string) bool {
 		}
 	}
 	return false
+}
+
+func (bp *BaseParser) Is(p func(rune) bool) bool {
+	return p(bp.ch)
 }

@@ -18,6 +18,8 @@ type (
 	_Symbol string // sym (unused, same as (quote atom) )
 )
 
+var Nil NilType
+
 func (NilType) String() string     { return "nil" }
 func (b Boolean) String() string   { return strconv.FormatBool(bool(b)) }
 func (n Number) String() string    { return strconv.FormatFloat(float64(n), 'f', -1, 64) }
@@ -41,7 +43,7 @@ type DebugStringer interface {
 	DebugString() string
 }
 
-func (NilType) Exec(*LocalScope) any     { return nil }
+func (NilType) Exec(*LocalScope) any     { return Nil }
 func (b Boolean) Exec(*LocalScope) any   { return b }
 func (n Number) Exec(*LocalScope) any    { return n }
 func (r RawString) Exec(*LocalScope) any { return r }

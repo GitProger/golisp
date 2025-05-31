@@ -75,6 +75,9 @@ func RegisterBasicForms(global *LocalScope) {
 	global.Set("nil", nil)
 	global.Set("true", Boolean(true))
 	global.Set("false", Boolean(false))
+	global.Set("#nil", nil)
+	global.Set("#t", Boolean(true))
+	global.Set("#f", Boolean(false))
 
 	global.Set("car", Func{args: ExprOfAny(ConsList[Atomic]("l")),
 		fn: func(ls *LocalScope, args Pair) any {
@@ -95,7 +98,7 @@ func RegisterBasicForms(global *LocalScope) {
 		},
 	})
 
-	global.Set("define", Func{
+	global.Set("define", Func{ // important: changes are made in the the local context
 		macro: true,
 		args:  ExprOfAny(ConsList[Atomic]("name", "value")),
 		fn: func(ls *LocalScope, args Pair) any {
@@ -124,6 +127,48 @@ func RegisterBasicForms(global *LocalScope) {
 		},
 	})
 
+	global.Set("atom?", Func{ // is it an atom?
+		args: ExprOfAny(ConsList[Atomic]("expr")),
+		fn: func(ls *LocalScope, p Pair) any {
+			return Boolean(!ExprOfAny(p.Car()).isSExpr)
+		},
+	})
+
+	global.Set("symbol?", Func{
+		args: ExprOfAny(ConsList[Atomic]("sym")),
+		fn: func(ls *LocalScope, p Pair) any {
+			_, ok := p.Car().(Atomic)
+			return Boolean(ok)
+		},
+	})
+
+	global.Set("defined?", Func{
+		args: ExprOfAny(ConsList[Atomic]("sym")),
+		fn: func(ls *LocalScope, p Pair) any {
+			_, ok := ls.Get(p.Car().(Atomic))
+			return Boolean(ok)
+		},
+	})
+
+	global.Set("set!", Func{ // important: changes are made in the the local context, unlike in Guile
+		macro: true,
+		args:  ExprOfAny(ConsList[Atomic]("sym", "val")),
+		fn: func(ls *LocalScope, p Pair) any {
+			name := p.Car().(Atomic)
+			value := p.Cdr().(Pair).Car()
+			if !ls.Update(name, ExprOfAny(value).Exec(ls)) { // in `!ls.Update(name, value)` value is atom|cons, not evaluated as set! is a macro
+				panic("set!: undefined symbol '" + name + "'")
+			}
+			return nil
+		},
+	})
+
+	global.Set("gensym", Func{
+		fn: func(ls *LocalScope, p Pair) any {
+			return GenSym(ls, "sym")
+		},
+	})
+
 	global.Set("eval", Func{ // better need context
 		args: ExprOfAny(ConsList[Atomic]("code")),
 		fn: func(ls *LocalScope, p Pair) any {
@@ -137,6 +182,14 @@ func RegisterBasicForms(global *LocalScope) {
 			// fun := ExprOfAny(p.Car()).Exec(ls).(Func)
 			fun := p.Car().(Func)
 			return fun.fn(ls, UnfoldCons(p.Cdr().(Pair)))
+		},
+	})
+
+	global.Set("display", Func{
+		args: ExprOfAny(ConsList[Atomic]("str")),
+		fn: func(ls *LocalScope, p Pair) any {
+			fmt.Println(p.Car().(fmt.Stringer))
+			return nil
 		},
 	})
 
@@ -156,7 +209,22 @@ func RegisterBasicForms(global *LocalScope) {
 		},
 	})
 
-	global.Set("version", Func{fn: func(ls *LocalScope, p Pair) any { return "1.0" }})
+	global.Set("strlen", Func{
+		args: ExprOfAny(ConsList[Atomic]("str")),
+		fn: func(ls *LocalScope, p Pair) any {
+			return Number(len(p.Car().(RawString)))
+		},
+	})
+
+	global.Set("char", Func{
+		args: ExprOfAny(ConsList[Atomic]("str i")),
+		fn: func(ls *LocalScope, p Pair) any {
+			i := int(p.Cdr().(Pair).Car().(Number))
+			return RawString(p.Car().(RawString)[i])
+		},
+	})
+
+	global.Set("version", Func{fn: func(ls *LocalScope, p Pair) any { return VERSION }})
 
 	global.Set("if", Func{
 		macro: true,
@@ -223,11 +291,17 @@ func RegisterBasicForms(global *LocalScope) {
 
 	global.Set("null?", Func{
 		fn: func(ls *LocalScope, p Pair) any { // p - list of args
-			return Boolean(IsNil(p.Car()))
+			element := p.Car()
+			// return Boolean(IsNil(element))
+			if _, isList := element.(Pair); isList {
+				return Boolean(IsNil(element))
+			} else {
+				return Boolean(element == nil)
+			}
 		},
 	})
 
-	global.Set("=", Func{fn: func(ls *LocalScope, p Pair) any { // numbers only
+	global.Set("eq?", Func{fn: func(ls *LocalScope, p Pair) any { // scalars only, lists are compares as refs
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1] != a[i] {
@@ -236,6 +310,17 @@ func RegisterBasicForms(global *LocalScope) {
 		}
 		return Boolean(true)
 	}})
+
+	global.Set("=", Func{fn: func(ls *LocalScope, p Pair) any { // scalars only, lists are compares as refs
+		a := ConsToGoList(p)
+		for i := range a {
+			if i > 0 && a[i-1].(Number) != a[i].(Number) {
+				return Boolean(false)
+			}
+		}
+		return Boolean(true)
+	}})
+
 	global.Set("<", Func{fn: func(ls *LocalScope, p Pair) any {
 		a := ConsToGoList(p)
 		for i := range a {

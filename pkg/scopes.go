@@ -3,6 +3,7 @@ package lisp
 import (
 	"fmt"
 	"golisp/functional"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -32,8 +33,52 @@ type (
 	}
 )
 
-func Quote(v any) Quoted {
-	return Quoted{v}
+/*
+  - quoting was restricted in macros
+    example:
+
+  - errs:
+    ```lisp
+
+(define-macro (case val . ps)
+
+	(if (not (null? ps))
+	  `(let ((lst (caar ',ps)) (res ,(cadar ps)))
+	    (cond ((eq? lst 'else) res)
+	          ((member ,val lst) res)
+	          (#t (case ,val ,@(cdr ps)))))))
+
+(case 10 ((1 2 3) 10) (else 20))
+
+```
+
+  - okay:
+    ```lisp
+
+(define-macro (case val . ps)
+
+	(if (not (null? ps))
+	  `(let ((lst (caar (quote ,ps))) (res ,(cadar ps)))
+	    (cond ((eq? lst 'else) res)
+	          ((member ,val lst) res)
+	          (#t (case ,val ,@(cdr ps)))))))
+
+(case 10 ((1 2 3) 10) (else 20))
+```
+
+```go
+func Quote(v any) Quoted { return Quoted{v} }
+```
+main.go:
+```
+
+	fmt.Println(lisp.ParseSExpString("'(+ 1 2)"))
+	fmt.Println(lisp.ParseSExpString("(quote (+ 1 2))"))
+
+```
+*/
+func Quote(v any) *ConsCell {
+	return Cons(Atomic("quote"), Cons(v, nil))
 }
 
 func (q Quoted) Exec(ctx *LocalScope) any {
@@ -97,10 +142,24 @@ func (l *LocalScope) Del(name Atomic) bool {
 
 func (l *LocalScope) Set(name Atomic, value any) (created bool) {
 	l.mu.Lock()
-	_, created = l.defs[name]
+	_, found := l.defs[name]
 	l.defs[name] = value
 	l.mu.Unlock()
-	return
+	return !found
+}
+
+// like set, but changes are made in the holders context of the variable
+func (l *LocalScope) Update(name Atomic, value any) (updated bool) {
+	for ctx := l; ctx != nil; ctx = ctx.parent {
+		ctx.mu.Lock()
+		if _, found := ctx.defs[name]; found {
+			ctx.defs[name] = value
+			ctx.mu.Unlock()
+			return true
+		}
+		ctx.mu.Unlock()
+	}
+	return false
 }
 
 func (l *LocalScope) String() string {
@@ -115,6 +174,17 @@ func (l *LocalScope) String() string {
 	return sb.String()
 }
 
+var _ = info
+
+func info(args any) string {
+	res := ""
+	MapCons(func(a any) any {
+		res += "[" + fmt.Sprint(reflect.TypeOf(a)) + ": " + fmt.Sprint(a) + "]"
+		return nil
+	}, args)
+	return res
+}
+
 func (expr *ConsCell) Exec(l *LocalScope) any { // (appl ... args)
 	if IsNil(expr) {
 		panic("empty list is not valid")
@@ -125,9 +195,11 @@ func (expr *ConsCell) Exec(l *LocalScope) any { // (appl ... args)
 		panic(fmt.Errorf(`<%s> of type <%s> is not applicable`, appl, TypeOf(appl)))
 	} else {
 		if fn.macro {
+			// fmt.Printf("MACRO '%s' CALL: %s\n", appl, info(args))
 			return fn.fn(l, PairOf(args))
 		} else {
 			argsEval := MapCons(func(a any) any { return ExprOfAny(a).Exec(l) }, args)
+			// fmt.Printf("FUNCTION '%s' CALL: %s\n", appl, info(argsEval))
 			return fn.fn(l, PairOf(argsEval))
 		}
 	}

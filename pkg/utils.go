@@ -8,6 +8,18 @@ func IsNil(v any) bool {
 	return v == nil || reflect.ValueOf(v).IsNil() // reflect.ValueOf(nil).IsNil() -> error
 }
 
+func IsNilValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch rv := reflect.ValueOf(v); rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.UnsafePointer, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
+}
+
 func TypeOf(v any) string { return reflect.TypeOf(v).String() }
 
 func PairOf(v any) Pair {
@@ -36,28 +48,34 @@ func ExprOfAny(a any) Expr {
 	}
 }
 
+func AnyFromExpr(e Expr) any {
+	if e.isSExpr {
+		return e.sexp
+	} else {
+		return e.atom
+	}
+}
+
 func MapCons(fn func(any) any, a any) any {
-	if a == nil {
-		return nil
+	// if a == nil { return nil }
+	if IsNil(a) {
+		return a
 	}
 	return Cons(fn(a.(Pair).Car()), MapCons(fn, a.(Pair).Cdr()))
 }
 
 func MapConsUnfold(fn func(any) (any, bool), a any) any {
-	if a == nil {
-		return nil
+	// fmt.Printf("Unfold: %+v\n", a)
+	if IsNil(a) {
+		return a // '() -> '()
 	}
 	head, unfold := fn(a.(Pair).Car())
 	// fmt.Println("res:", head, "|", unfold)
 	rest := MapConsUnfold(fn, a.(Pair).Cdr())
 	if unfold {
 		// v.cdr.cdr. ... = rest
-		if IsNil(head) {
-			if IsNil(rest) {
-				return rest
-			} else {
-				return head
-			}
+		if _, isList := head.(Pair); isList && IsNil(head) {
+			return rest
 		}
 
 		if it, isList := head.(Pair); isList {
@@ -78,7 +96,7 @@ func MapConsUnfold(fn func(any) (any, bool), a any) any {
 }
 
 func FoldlCons(fn func(cur, acc any) any, z any, list Pair) any {
-	if list == nil {
+	if IsNil(list) { // list == nil - incorrect
 		return z
 	}
 	return FoldlCons(fn, fn(list.Car(), z), PairOf(list.Cdr()))

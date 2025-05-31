@@ -3,54 +3,57 @@ package lisp
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_exec0(t *testing.T) {
 	sexp := ParseSExpString(`(version)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, VERSION, sexp.Exec(Global))
 }
 
 func Test_exec(t *testing.T) {
 	sexp := ParseSExpString(`(+ 1 2)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, Number(3), sexp.Exec(Global))
 }
+
 func Test_exec2(t *testing.T) {
 	sexp := ParseSExpString(`(define a 10)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, nil, sexp.Exec(Global))
 }
 
 func Test_exec3(t *testing.T) {
 	sexp := ParseSExpString(`(lambda (x) (+ x 1))`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, "<lambda: (lambda (x) (+ x 1))>", toStr(sexp.Exec(Global)))
 }
 
 func Test_exec4(t *testing.T) {
 	sexp := ParseSExpString(`(define inc (lambda (x) (+ x 1)))`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, nil, sexp.Exec(Global))
 	sexp = ParseSExpString(`(inc 10)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, Number(11), sexp.Exec(Global))
 }
 
 func Test_exec_native(t *testing.T) {
 	sexp := ParseSExpString(`+`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, `<lambda: (lambda () <native>)>`, toStr(sexp.Exec(Global)))
 }
 
 func Test_exec5(t *testing.T) {
 	sexp := ParseSExpString(`(define (add2 x) (+ x 2))`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, nil, sexp.Exec(Global))
 	sexp = ParseSExpString(`(add2 10)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, Number(12), sexp.Exec(Global))
 }
 
 func Test_exec6(t *testing.T) {
 	sexp := ParseSExpString(`((lambda (x) (+ x 1)) 5)`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, Number(6), sexp.Exec(Global))
 }
 
 func Test_exec7(t *testing.T) {
 	sexp := ParseSExpString(`if`)
-	fmt.Println(sexp.Exec(Global))
+	assert.Equal(t, true, sexp.Exec(Global).(Func).macro)
 }
 
 func Test_exec8(t *testing.T) {
@@ -216,6 +219,9 @@ func Test_macro_3(t *testing.T) {
 	fmt.Println(sexp.Exec(Global))
 }
 
+// `(+ 1 ,@'(2 3)) -> (+ 1 2 3)
+// `(+ 1 ,@(2 3)) -> error
+
 func Test_macro_4(t *testing.T) {
 	sexp := ParseSExpString("((lambda (a) `(+ 1 ,@a)) 1)") // (+ 1 . 1)
 	fmt.Println(sexp)
@@ -235,8 +241,39 @@ func Test_macro_6(t *testing.T) {
 	fmt.Println(sexp.Exec(Global))
 }
 
+func Test_Unfold_1(t *testing.T) {
+	sexp := ParseSExpString("`(1 ,@'(2 3))") // (1 2 3)
+	fmt.Println(sexp)
+	fmt.Println(sexp.Exec(Global))
+}
+
+func Test_Unfold_2(t *testing.T) {
+	defer func() { fmt.Println(recover()) }()
+	sexp := ParseSExpString("`(1 ,@(2 3))") // err, not applicable
+	fmt.Println(sexp)
+	fmt.Println(sexp.Exec(Global))
+}
+
+func Test_Unfold_3(t *testing.T) {
+	sexp := ParseSExpString("`(1 ,@'())") // (1)
+	fmt.Println(sexp)
+	fmt.Println(sexp.Exec(Global))
+}
+
+func Test_Unfold_4(t *testing.T) {
+	sexp := ParseSExpString("`(1 ,@'() 2)") // (1 2)
+	fmt.Println(sexp)
+	fmt.Println(sexp.Exec(Global))
+}
+
+func Test_Unfold_5(t *testing.T) {
+	sexp := ParseSExpString("`(,@'())") // () or <nil>
+	fmt.Println(sexp)
+	fmt.Println(sexp.Exec(Global))
+}
+
 func Test_fn_x(t *testing.T) {
-	sexp := ParseSExpString("(cons 1 ((lambda x x) 2 3 4 5))") // (+ 1 2 3 4 5)
+	sexp := ParseSExpString("(cons 1 ((lambda x x) 2 3 4 5))") // (1 2 3 4 5)
 	fmt.Println(sexp.Exec(Global))
 }
 
@@ -287,8 +324,13 @@ func Test_macro_def_1(t *testing.T) {
 
 }
 
-func Test_gap_1(t *testing.T) {
-	s := ParseSExpString("")
-	fmt.Println(s)
-	fmt.Println(s.Exec(Global))
-}
+// func Test_gap_1(t *testing.T) {
+// 	s := ParseSExpString("")
+// 	fmt.Println(s)
+// 	fmt.Println(s.Exec(Global))
+// }
+
+// (define a (lambda (
+//                    x y)
+//    (+ x
+//       y)))

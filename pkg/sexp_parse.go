@@ -2,6 +2,7 @@ package lisp
 
 import (
 	"encoding/binary"
+	"errors"
 	"golisp/parsing"
 	"strconv"
 	"strings"
@@ -18,11 +19,14 @@ number        ::= "1" | "2" | " ..." | "9"
 empty         ::= " "
 */
 
-func nop() {}
+var ErrEOF = errors.New("unexpected end of the source")
 
 type SExpParser struct {
 	*parsing.BaseParser
 	processing int
+
+	SexpStream chan Expr
+	cancel     chan struct{}
 }
 
 func NewSExpParser(cs parsing.CharSource) *SExpParser {
@@ -32,19 +36,34 @@ func NewSExpParser(cs parsing.CharSource) *SExpParser {
 func ParseSExpString(s string) Expr        { return ParseSExp(parsing.NewStringSource(s)) }
 func ParseSExp(cs parsing.CharSource) Expr { return NewSExpParser(cs).ParseSExp() }
 
-// func (parser *SExpParser) ParseSExp() Expr {
-// 	if result := parser.parseElement(); parser.Eof() {
-// 		if sexp, ok := result.(*ConsCell); ok {
-// 			return Expr{isSExpr: true, sexp: sexp}
-// 		} else {
-// 			return Expr{isSExpr: false, atom: result}
-// 		}
+// func NewAsyncSExpParser(cs parsing.CharSource) *SExpParser {
+// 	parser := &SExpParser{
+// 		BaseParser: parsing.NewAsyncBaseParser(cs),
+// 		cancel:     make(chan struct{}, 1),
+// 		SexpStream: make(chan Expr, 1),
 // 	}
-// 	panic("end of S-expression expected")
+
+// 	// go func() { // optional
+// 	// 	for {
+// 	// 		select {
+// 	// 		case <-parser.cancel:
+// 	// 			close(parser.SexpStream)
+// 	// 			return
+// 	// 		case parser.SexpStream <- parser.ParseSExp():
+// 	// 		}
+// 	// 	}
+// 	// }()
+// 	return parser
 // }
 
-func (parser *SExpParser) ParseSExp() Expr {
-	result := parser.parseElementTop()
+func (parser *SExpParser) Close() {
+	if parser.cancel != nil {
+		close(parser.cancel)
+		parser.cancel = nil
+	}
+}
+
+func toValue(result any) Expr {
 	if sexp, ok := result.(*ConsCell); ok {
 		return Expr{isSExpr: true, sexp: sexp}
 	} else {
@@ -52,24 +71,45 @@ func (parser *SExpParser) ParseSExp() Expr {
 	}
 }
 
+func (parser *SExpParser) ParseSExpFinal() Expr {
+	if result := parser.parseElement(); parser.Eof() {
+		return toValue(result)
+	}
+	panic("end of S-expression expected")
+}
+
+func (parser *SExpParser) ParseSExp() Expr {
+	result := parser.parseElement()
+	return toValue(result)
+}
+
 func (parser *SExpParser) Processing() bool { return parser.processing > 0 }
 
-func (parser *SExpParser) parseElementTop() any {
-	parser.skipWhitespaces()
-	parser.processing++
-	defer func() { parser.processing-- }()
-	result := parser.parseValue()
-	return result
+func (parser *SExpParser) ParseChar() rune {
+	return parser.TakeNext()
 }
+
+// func (parser *SExpParser) parseElementTop() any {
+// 	parser.processing++
+// 	defer func() { parser.processing-- }()
+// 	return parser.parseElement()
+// }
 
 func (parser *SExpParser) parseElement() any {
 	parser.skipWhitespaces()
-	result := parser.parseValue()
+	parser.skipComment()
 	parser.skipWhitespaces()
+	result := parser.parseValue()
 	return result
 }
 
 func (s *SExpParser) parseValue() any {
+	if s.Eof() {
+		// source killed when parsin already started
+		// for example: NewStringSource("")
+		// or Ctrl+D after an input (parsing cicle already beggined, but .Close() called)
+		panic(ErrEOF)
+	}
 	switch {
 	case s.Take('('):
 		return s.parseList(')')
@@ -89,6 +129,8 @@ func (s *SExpParser) parseValue() any {
 		} else {
 			return Unquote(s.parseElement()) // s.parseSymbol()
 		}
+	case s.Take(')'), s.Take(']'):
+		panic("unopened braces")
 	default:
 		return s.parseAtom()
 	}
@@ -131,7 +173,7 @@ func (parser *SExpParser) parseList(end rune) *ConsCell {
 	var list []any
 	for !parser.Take(end) {
 		list = append(list, parser.parseElement())
-		if parser.Take('.') {
+		if parser.skipWhitespaces(); parser.Take('.') {
 			list = append(list, parser.parseElement())
 			dot = true
 			parser.Expect(end)
@@ -261,10 +303,21 @@ func (parser *SExpParser) takeInteger(sb *strings.Builder) {
 // Whitespaces
 func (parser *SExpParser) skipWhitespaces() { // hangs in waiting
 	for parser.Take(' ') || parser.Take('\t') || parser.Take('\n') || parser.Take('\r') {
-		src := parser.BaseParser.GetSource()
-		if !src.HasNext() {
-			// wait
-			nop()
+		// if !parser.BaseParser.GetSource().HasNext() { // wait
+		// }
+	}
+}
+
+func (parser *SExpParser) skipComment() {
+	// if parser.Take(';') {
+	// 	for !parser.Take('\n') {
+	// 		parser.TakeNext()
+	// 	}
+	// }
+	for parser.Take(';') {
+		for !parser.Take('\n') {
+			parser.TakeNext()
 		}
+		parser.skipWhitespaces()
 	}
 }
