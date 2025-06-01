@@ -233,7 +233,7 @@ func RegisterBasicForms(global *LocalScope) {
 			cond := p.Car()
 			code := p.Cdr().(Pair)
 			t, f := code.Car(), code.Cdr()
-			if ExprOfAny(cond).Exec(ls).(Boolable).Bool() {
+			if condRes := ExprOfAny(cond).Exec(ls); condRes != nil && condRes.(Boolable).Bool() {
 				return ExprOfAny(t).Exec(ls)
 			} else if f != nil {
 				if f.(Pair).Cdr() != nil {

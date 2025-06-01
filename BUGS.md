@@ -6,3 +6,5 @@ example:
 `fatal error: interface conversion: interface is nil, not lisp.Boolable`  
 
 <no-value> == (nil == '())
+
+FIXED by a stub, fixing all relevant `nil` to `lisp.Nil` will be quite complex as there are plenty of places where the code relies of nil-comparison
