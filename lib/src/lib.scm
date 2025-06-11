@@ -1,5 +1,7 @@
 
 (define atom atom?)
+(define nil #nil)
+(define (nil? x) (if x #t #f))
 
 (define (zero? x) (= x 0))
 ;(define (null? x) (eq? x '()))

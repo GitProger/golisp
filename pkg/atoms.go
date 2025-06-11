@@ -19,9 +19,15 @@ type (
 )
 
 var Nil NilType
+var EmptyList *ConsCell = nil
 
-func (NilType) String() string     { return "nil" }
-func (b Boolean) String() string   { return strconv.FormatBool(bool(b)) }
+func (NilType) String() string { return "#nil" }
+func (b Boolean) String() string {
+	if bool(b) {
+		return "#t"
+	}
+	return "#f"
+}
 func (n Number) String() string    { return strconv.FormatFloat(float64(n), 'f', -1, 64) }
 func (r RawString) String() string { return "\"" + string(r) + "\"" }
 func (s _Symbol) String() string   { return "'" + string(s) }

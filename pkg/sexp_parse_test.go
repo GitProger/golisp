@@ -69,6 +69,38 @@ func Test_basicParse_SExpr(t *testing.T) {
 	}
 }
 
+func Test_basicParse_Lists(t *testing.T) {
+	for _, test := range []struct {
+		val string
+		res any
+	}{
+		{`()`, (*ConsCell)(nil)},
+		{`(1 2 3)`, ConsList[Number](1, 2, 3)},
+		{`(a)`, ConsList[Atomic]("a")},
+		//{`(. a)`, ConsListDotted[Atomic]("a")},
+		{`(1 . x)`, Cons(Number(1), Atomic("x"))},
+		{`(1 2 . 3)`, ConsListDotted[Number](1, 2, 3)},
+	} {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					if test.res != "" {
+						t.Errorf("unexpected exception")
+					}
+				}
+			}()
+			actual := ParseSExpString(test.val)
+			if !actual.isSExpr {
+				t.Errorf("not a list: %v", actual)
+			} else if toStr(actual) != toStr(test.res) {
+				t.Errorf(`expected "%s", got "%s"`, test.res, actual)
+			}
+		}()
+	}
+}
+
+// ((lambda ( . a) a) 2)
+
 func Test_basicParse_SExpr_2(t *testing.T) {
 	var (
 		code   = "(a b . c)"

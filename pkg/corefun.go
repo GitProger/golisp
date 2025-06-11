@@ -72,7 +72,6 @@ func Lambda(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 }
 
 func RegisterBasicForms(global *LocalScope) {
-	global.Set("nil", nil)
 	global.Set("true", Boolean(true))
 	global.Set("false", Boolean(false))
 
@@ -293,7 +292,7 @@ func RegisterBasicForms(global *LocalScope) {
 			if _, isList := element.(Pair); isList {
 				return Boolean(IsNil(element))
 			} else {
-				return Boolean(element == nil)
+				return Boolean(element == nil) || element == Nil
 			}
 		},
 	})

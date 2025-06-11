@@ -139,7 +139,7 @@ func (s *SExpParser) parseValue() any {
 			return Boolean(true)
 		case s.Take('n'):
 			if s.Take('i') && s.Take('l') {
-				return nil
+				return Nil
 			} else {
 				panic("#nil expected")
 			}
@@ -183,6 +183,8 @@ func (parser *SExpParser) parseKeyword() Keyword {
 	return Keyword(parser.parseIdent())
 }
 
+// empty list is 'nil' of type *ConsCell
+// #nil is Nil of type
 func (parser *SExpParser) parseList(end rune) *ConsCell {
 	dot := false
 	var list []any
