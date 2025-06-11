@@ -131,6 +131,21 @@ func (s *SExpParser) parseValue() any {
 		}
 	case s.Take(')'), s.Take(']'):
 		panic("unopened braces")
+	case s.Take('#'):
+		switch {
+		case s.Take('f'):
+			return Boolean(false)
+		case s.Take('t'):
+			return Boolean(true)
+		case s.Take('n'):
+			if s.Take('i') && s.Take('l') {
+				return nil
+			} else {
+				panic("#nil expected")
+			}
+		default:
+			panic("unknown special symbol")
+		}
 	default:
 		return s.parseAtom()
 	}

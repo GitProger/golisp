@@ -75,9 +75,6 @@ func RegisterBasicForms(global *LocalScope) {
 	global.Set("nil", nil)
 	global.Set("true", Boolean(true))
 	global.Set("false", Boolean(false))
-	global.Set("#nil", nil)
-	global.Set("#t", Boolean(true))
-	global.Set("#f", Boolean(false))
 
 	global.Set("car", Func{args: ExprOfAny(ConsList[Atomic]("l")),
 		fn: func(ls *LocalScope, args Pair) any {
