@@ -31,10 +31,6 @@ type Pair interface {
 	Cdr() any
 }
 
-type Boolable interface {
-	Bool() bool
-}
-
 type ConsCell struct {
 	car, cdr any
 }

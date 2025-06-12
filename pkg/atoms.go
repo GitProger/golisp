@@ -5,8 +5,6 @@ import (
 	"strconv"
 )
 
-type AtomType int
-
 type (
 	NilType   struct{}
 	Boolean   bool    // true, false
@@ -18,8 +16,27 @@ type (
 	_Symbol string // sym (unused, same as (quote atom) )
 )
 
+type (
+	Boolable interface {
+		Bool() bool
+	}
+
+	Executor interface {
+		Exec(ctx *LocalScope) any // Value
+	}
+
+	Value interface {
+		fmt.Stringer
+		Executor
+		Boolable
+	}
+
+	DebugStringer interface {
+		DebugString() string
+	}
+)
+
 var Nil NilType
-var EmptyList *ConsCell = nil
 
 func (NilType) String() string { return "#nil" }
 func (b Boolean) String() string {
@@ -40,14 +57,6 @@ func (n Number) Bool() bool    { return n != 0 }
 func (r RawString) Bool() bool { return r != "" }
 func (a Atomic) Bool() bool    { return true }
 func (c *ConsCell) Bool() bool { return c != nil }
-
-type Executor interface {
-	Exec(ctx *LocalScope) any
-}
-
-type DebugStringer interface {
-	DebugString() string
-}
 
 func (NilType) Exec(*LocalScope) any     { return Nil }
 func (b Boolean) Exec(*LocalScope) any   { return b }

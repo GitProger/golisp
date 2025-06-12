@@ -12,12 +12,12 @@ func init() {
 }
 
 func Define(ctx *LocalScope, args Pair) { // Pair of Expr
-	if args == nil { // (define)
+	if IsNil(args) { // (define)
 		panic("define: wrong syntax")
 	}
 
 	if args.Cdr() == nil { // nil: (define x)
-		Define(ctx, Cons(args.Car(), ExprOfAny(nil)))
+		Define(ctx, Cons(args.Car(), ExprOfAny(nil))) // nil -> no value
 	} else {
 		def, rest := ExprOfAny(args.Car()), args.Cdr()
 		if def.isSExpr { // function: (define (fn a b c . d) e ...)
@@ -58,7 +58,7 @@ func Lambda(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 					panic("too many arguments")
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
-				// argNames.atom == nil in case of (lambda () ...) or (lambda nil ...)
+				// argNames.atom is nil in case of (lambda () ...) or (lambda nil ...)
 				newCtx.Set(argNames.atom.(Atomic), cons)
 			}
 

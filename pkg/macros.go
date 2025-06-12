@@ -130,7 +130,7 @@ func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
 				// fmt.Println("Branch 2")
-				// argNames.atom == nil in case of (lambda () ...) or (lambda nil ...)
+				// argNames.atom is nil in case of (lambda () ...) or (lambda nil ...)
 				newCtx.Set(argNames.atom.(Atomic), cons)
 			}
 

@@ -8,6 +8,6 @@ run:
 runrl:
 	rlwrap ./$(build)/repl
 clean:
-	[ -e $(build) ] && rm -r $(build)/
+	rm -r $(build)/ || true
 
 all: clean build run
