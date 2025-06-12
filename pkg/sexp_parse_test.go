@@ -2,7 +2,20 @@ package lisp
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func TestEmpty(t *testing.T) {
+	assert.True(t, IsEmptyList(nil))
+	assert.True(t, IsEmptyList(EmptyList))
+	var x *ConsCell = nil
+	assert.True(t, IsEmptyList(x))
+	var y any = x
+	assert.True(t, IsEmptyList(y))
+	assert.False(t, IsEmptyList(Number(10)))
+	assert.False(t, IsEmptyList(Cons(Atomic("a"), Number(10))))
+}
 
 func Test_basicParse_Number_1(t *testing.T) {
 	s := ParseSExpString("123")
@@ -74,12 +87,17 @@ func Test_basicParse_Lists(t *testing.T) {
 		val string
 		res any
 	}{
-		{`()`, (*ConsCell)(nil)},
-		{`(1 2 3)`, ConsList[Number](1, 2, 3)},
+		{`()`, EmptyList},
+		{`(1 2 3 10)`, ConsList[Number](1, 2, 3, 10)},
+		{`(1 . (2 3 . (4 . ())))`, ConsList[Number](1, 2, 3, 4)},
 		{`(a)`, ConsList[Atomic]("a")},
 		//{`(. a)`, ConsListDotted[Atomic]("a")},
 		{`(1 . x)`, Cons(Number(1), Atomic("x"))},
 		{`(1 2 . 3)`, ConsListDotted[Number](1, 2, 3)},
+		{`(1 2 . ())`, ConsList[Number](1, 2)},
+		{`(1 2 . (3))`, ConsList[Number](1, 2, 3)},
+		{`(1 2 . (4 5))`, ConsList[Number](1, 2, 4, 5)},
+		{`(1 2 . (4 5 . 6))`, ConsListDotted[Number](1, 2, 4, 5, 6)},
 	} {
 		func() {
 			defer func() {

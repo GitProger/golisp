@@ -40,6 +40,12 @@ func IsCons(v any) bool {
 	return ok
 }
 
+var EmptyList *ConsCell = nil
+
+func IsEmptyList(v any) bool {
+	return v == nil || v == EmptyList
+}
+
 func (c ConsCell) Car() any       { return c.car }
 func (c ConsCell) Cdr() any       { return c.cdr }
 func Cons(car, cdr any) *ConsCell { return &ConsCell{car: car, cdr: cdr} }
@@ -147,7 +153,7 @@ func ConsToGoList(p Pair) []any {
 	var res []any
 	for {
 		res = append(res, p.Car())
-		if p.Cdr() == nil {
+		if IsEmptyList(p.Cdr()) {
 			break
 		}
 		p = p.Cdr().(Pair)
@@ -159,7 +165,7 @@ func ConsToGoListSoft(p Pair) []any {
 	var res []any
 	for {
 		res = append(res, p.Car())
-		if p.Cdr() == nil {
+		if IsEmptyList(p.Cdr()) {
 			break
 		}
 		var ok bool
@@ -173,7 +179,7 @@ func ConsToGoListSoft(p Pair) []any {
 func IsList(p Pair) bool {
 	ok := true
 	for {
-		if p.Cdr() == nil {
+		if IsEmptyList(p.Cdr()) {
 			return true
 		}
 		if p, ok = p.Cdr().(Pair); !ok {
