@@ -106,7 +106,7 @@ func (c *ConsCell) String() string { // in some scheme version also: (. x) is x
 				break
 			}
 		} else {
-			if c.Cdr() != nil {
+			if !IsEmptyList(c.Cdr()) { // pair
 				sb.WriteString(" . " + toStr(c.Cdr()))
 			}
 			break
@@ -130,7 +130,7 @@ func (c *ConsCell) DebugString() string { // (. x) -> x
 				break
 			}
 		} else {
-			if c.Cdr() != nil {
+			if !IsEmptyList(c.Cdr()) { // pair
 				sb.WriteString(" . " + TypeOf(c.Cdr()) + ":" + toStr(c.Cdr()))
 			}
 			break

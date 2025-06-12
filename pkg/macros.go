@@ -143,7 +143,11 @@ func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 			}
 			// fmt.Println("built")
 
-			return res.(Executor).Exec(callCtx) // not newCtx because we should evaluate syntax changes in thw main context immediately unlike in `lambda`
+			if exec, ok := res.(Executor); ok {
+				return exec.Exec(callCtx) // not newCtx because we should evaluate syntax changes in thw main context immediately unlike in `lambda`
+			} else {
+				return res
+			}
 		},
 	}
 }
