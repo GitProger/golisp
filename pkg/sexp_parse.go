@@ -197,7 +197,7 @@ func (parser *SExpParser) parseList(end rune) *ConsCell {
 			break
 		}
 	}
-	var last any = nil
+	var last any = EmptyList
 	if dot {
 		n := len(list) - 1
 		list, last = list[:n], list[n]
@@ -207,7 +207,7 @@ func (parser *SExpParser) parseList(end rune) *ConsCell {
 		cons = Cons(list[i], cons)
 	}
 
-	if cons == nil {
+	if IsEmptyList(cons) {
 		return nil
 	}
 	return cons.(*ConsCell)

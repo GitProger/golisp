@@ -85,7 +85,7 @@ func MapConsUnfold(fn func(any) (any, bool), a any) any {
 			it.(*ConsCell).SetCdr(rest)
 			return head
 		} else {
-			if rest != nil {
+			if !IsEmptyList(rest) {
 				panic("error unpacking smth like (x y . z ...)")
 			}
 			return head
@@ -103,7 +103,7 @@ func FoldlCons(fn func(cur, acc any) any, z any, list Pair) any {
 }
 
 func IterateCons(list Pair, fn func(v any) bool) {
-	for a := list; a != nil; a = PairOf(a.Cdr()) {
+	for a := list; !IsEmptyList(a); a = PairOf(a.Cdr()) {
 		if !fn(a.Car()) {
 			return
 		}
@@ -112,13 +112,13 @@ func IterateCons(list Pair, fn func(v any) bool) {
 
 func CheckLength(list Pair, req int) bool { // len(list) <= req
 	if req == 0 {
-		return list == nil
+		return IsEmptyList(list)
 	}
 	return CheckLength(PairOf(list.Cdr()), req-1)
 }
 
 func UnfoldCons(p Pair) Pair { // (a b c ... (x y z)) -> (a b c ... x y z)
-	if p.Cdr() == nil {
+	if IsEmptyList(p.Cdr()) {
 		return PairOf(p.Car())
 	}
 	return Cons(p.Car(), UnfoldCons(PairOf(p.Cdr())))
@@ -135,14 +135,14 @@ func Finalize(ctx *LocalScope, res any) any {
 }
 
 func CopyCons(v Pair) *ConsCell {
-	if v == nil {
+	if IsEmptyList(v) {
 		return nil
 	}
 	return Cons(v.Car(), CopyCons(PairOf(v.Cdr())))
 }
 
 func DeepcopyCons(v Pair) *ConsCell {
-	if v == nil {
+	if IsEmptyList(v) {
 		return nil
 	}
 	fst := v
@@ -156,7 +156,7 @@ func InsertInplace(where, what *ConsCell) *ConsCell { // where.car := expand(wha
 	res := where
 	for what != nil {
 		where.car = what.car
-		if what.cdr == nil {
+		if IsEmptyList(what.cdr) {
 			break
 		}
 		where, what = where.cdr.(*ConsCell), what.cdr.(*ConsCell)

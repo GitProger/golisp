@@ -57,6 +57,7 @@ func (n Number) Bool() bool    { return n != 0 }
 func (r RawString) Bool() bool { return r != "" }
 func (a Atomic) Bool() bool    { return true }
 func (c *ConsCell) Bool() bool { return c != nil }
+func (f Func) Bool() bool      { return true }
 
 func (NilType) Exec(*LocalScope) any     { return Nil }
 func (b Boolean) Exec(*LocalScope) any   { return b }
@@ -64,6 +65,7 @@ func (n Number) Exec(*LocalScope) any    { return n }
 func (r RawString) Exec(*LocalScope) any { return r }
 func (s _Symbol) Exec(*LocalScope) any   { return s }
 func (k Keyword) Exec(*LocalScope) any   { return k }
+func (f Func) Exec(*LocalScope) any      { return f }
 
 func (a Atomic) Exec(ctx *LocalScope) any {
 	if val, ok := ctx.Get(a); ok {

@@ -125,7 +125,7 @@ func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 					cons = nil
 				}
 
-				if cons != nil {
+				if !IsEmptyList(cons) {
 					panic("too many arguments")
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
@@ -165,7 +165,7 @@ func registerMacros(global *LocalScope) {
 			args := PairOf(p.Cdr())
 			var es []Expr
 			argList := args.Car()
-			for code := args.Cdr().(Pair); code != nil; code = PairOf(code.Cdr()) {
+			for code := args.Cdr().(Pair); !IsEmptyList(code); code = PairOf(code.Cdr()) {
 				es = append(es, ExprOfAny(code.Car()))
 			}
 			Defmacro(ls, p.Car().(Atomic), ExprOfAny(argList), es...)

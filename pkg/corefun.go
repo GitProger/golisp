@@ -16,8 +16,8 @@ func Define(ctx *LocalScope, args Pair) { // Pair of Expr
 		panic("define: wrong syntax")
 	}
 
-	if args.Cdr() == nil { // nil: (define x)
-		Define(ctx, Cons(args.Car(), ExprOfAny(nil))) // nil -> no value
+	if IsEmptyList(args.Cdr()) { // nil: (define x)
+		ctx.Set(args.Car().(Atomic), nil) // nil -> no value
 	} else {
 		def, rest := ExprOfAny(args.Car()), args.Cdr()
 		if def.isSExpr { // function: (define (fn a b c . d) e ...)
@@ -54,7 +54,7 @@ func Lambda(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 					cons = nil
 				}
 
-				if cons != nil {
+				if !IsEmptyList(cons) {
 					panic("too many arguments")
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
@@ -108,7 +108,7 @@ func RegisterBasicForms(global *LocalScope) {
 		fn: func(ls *LocalScope, args Pair) any {
 			var es []Expr
 			argList, code := args.Car(), args.Cdr().(Pair)
-			for ; code != nil; code = PairOf(code.Cdr()) {
+			for ; !IsEmptyList(code); code = PairOf(code.Cdr()) {
 				es = append(es, ExprOfAny(code.Car()))
 			}
 			return Lambda(ls, ExprOfAny(argList), es...)
@@ -231,8 +231,8 @@ func RegisterBasicForms(global *LocalScope) {
 			t, f := code.Car(), code.Cdr()
 			if condRes := ExprOfAny(cond).Exec(ls); condRes != nil && condRes.(Boolable).Bool() {
 				return ExprOfAny(t).Exec(ls)
-			} else if f != nil {
-				if f.(Pair).Cdr() != nil {
+			} else if !IsEmptyList(f) {
+				if !IsEmptyList(f.(Pair).Cdr()) {
 					panic("if: wrong syntax")
 				}
 				return ExprOfAny(f.(Pair).Car()).Exec(ls)

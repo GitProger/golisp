@@ -79,10 +79,13 @@ func Interpret(ctx context.Context, scope *lisp.LocalScope, in io.Reader, out io
 
 			expr := parser.ParseSExp()
 			res := expr.Exec(scope)
-			cmd++
+			// cmd++
 			if out != nil {
 				//fmt.Fprintf(out, "$%d = %s:%v\n", cmd, reflect.TypeOf(res), res)
-				fmt.Fprintf(out, "$%d = %v\n", cmd, res)
+				if res != nil {
+					cmd++
+					fmt.Fprintf(out, "$%d = %v\n", cmd, res)
+				}
 			}
 			echo(out)
 		}()
