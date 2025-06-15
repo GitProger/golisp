@@ -24,7 +24,7 @@ func (q Quasiquoted) Exec(ctx *LocalScope) any {
 
 func checkQuasi(ctx *LocalScope) {
 	if val, ok := ctx.Get("$quasi"); !ok || !val.(bool) {
-		panic("unquote out of quasiquote expression")
+		panic(ExecError{"unquote out of quasiquote expression"})
 	}
 }
 
@@ -89,8 +89,8 @@ func UnquoteSplicing(subj any) UnquotedSpliced { // ,@(...) / ,@a
 
 func Macroexpand(syntax Expr) any {
 	if syntax.isSExpr {
-		fmt.Println("EXPAND", syntax)
-		panic("not quasiquote")
+		// fmt.Println("EXPAND", syntax)
+		panic(ExecError{"not quasiquote"})
 	} else if q, ok := syntax.atom.(Quasiquoted); ok {
 		return q.Substitute(Global)
 	} else {
@@ -126,7 +126,7 @@ func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 				}
 
 				if !IsEmptyList(cons) {
-					panic("too many arguments")
+					panic(TooManyArguments)
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
 				// fmt.Println("Branch 2")

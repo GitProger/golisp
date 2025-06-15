@@ -75,7 +75,7 @@ func (parser *SExpParser) ParseSExpFinal() Expr {
 	if result := parser.parseElement(); parser.Eof() {
 		return toValue(result)
 	}
-	panic("end of S-expression expected")
+	panic(SyntaxError{"end of S-expression expected"})
 }
 
 func (parser *SExpParser) ParseSExp() Expr {
@@ -130,21 +130,21 @@ func (s *SExpParser) parseValue() any {
 			return Unquote(s.parseElement()) // s.parseSymbol()
 		}
 	case s.Take(')'), s.Take(']'):
-		panic("unopened braces")
+		panic(SyntaxError{"unopened braces"})
 	case s.Take('#'):
 		switch {
 		case s.Take('f'):
-			return Boolean(false)
+			return False
 		case s.Take('t'):
-			return Boolean(true)
+			return True
 		case s.Take('n'):
 			if s.Take('i') && s.Take('l') {
 				return Nil
 			} else {
-				panic("#nil expected")
+				panic(SyntaxError{"#nil expected"})
 			}
 		default:
-			panic("unknown special symbol")
+			panic(SyntaxError{"unknown special symbol"})
 		}
 	default:
 		return s.parseAtom()
@@ -154,13 +154,17 @@ func (s *SExpParser) parseValue() any {
 func (parser *SExpParser) parseIdent() Atomic {
 	var sb strings.Builder
 	good := func() bool {
-		return parser.Between('a', 'z') || parser.Between('A', 'Z') || parser.From("!?+-*/_<>=#") // : (keyword may be #:x or ':x)
+		return parser.Between('a', 'z') || parser.Between('A', 'Z') || parser.From("~!@#%^&*-_+={}/<>?") // : (keyword may be #:x or ':x)
 	}
+	// ,.:;'"\|$ special symbols
 	if good() {
 		sb.WriteRune(parser.TakeNext())
 	}
 	for good() || parser.Between('0', '9') {
 		sb.WriteRune(parser.TakeNext())
+	}
+	if sb.Len() == 0 {
+		panic(SyntaxError{"wrong identifier format"})
 	}
 	return Atomic(sb.String())
 }
@@ -185,7 +189,7 @@ func (parser *SExpParser) parseKeyword() Keyword {
 
 // empty list is 'nil' of type *ConsCell
 // #nil is Nil of type
-func (parser *SExpParser) parseList(end rune) *ConsCell {
+func (parser *SExpParser) parseList(end rune) *ConsCell /* any */ {
 	dot := false
 	var list []any
 	for !parser.Take(end) {
@@ -193,6 +197,7 @@ func (parser *SExpParser) parseList(end rune) *ConsCell {
 		if parser.skipWhitespaces(); parser.Take('.') {
 			list = append(list, parser.parseElement())
 			dot = true
+			parser.skipWhitespaces()
 			parser.Expect(end)
 			break
 		}
@@ -218,7 +223,7 @@ func (parser *SExpParser) parseString() RawString { // parse "([String]")
 	var sb strings.Builder
 	for !parser.Take('"') {
 		if parser.Eof() {
-			panic("string unterminated")
+			panic(SyntaxError{"string unterminated"})
 		}
 
 		if parser.Take('\\') {
@@ -243,12 +248,12 @@ func (parser *SExpParser) parseString() RawString { // parse "([String]")
 					} else if parser.Between('A', 'F') {
 						value = parser.nextHex(value, 'A'-10)
 					} else {
-						panic("expected hex digit")
+						panic(SyntaxError{"expected hex digit"})
 					}
 				}
 				binary.Write(&sb, binary.BigEndian, int16(value))
 			} else {
-				panic("Unknown escape character \\" + string(parser.TakeNext()))
+				panic(SyntaxError{"Unknown escape character \\" + string(parser.TakeNext())})
 			}
 
 		} else {
@@ -293,7 +298,7 @@ func (parser *SExpParser) parseNumber() Number {
 
 	val, err := strconv.ParseFloat(sb.String(), 64)
 	if err != nil {
-		panic("invalid number: " + err.Error())
+		panic(SyntaxError{"invalid number: " + err.Error()})
 	}
 	return Number(val)
 }
@@ -313,7 +318,7 @@ func (parser *SExpParser) takeInteger(sb *strings.Builder) {
 	} else if parser.Between('1', '9') {
 		parser.takeDigits(sb)
 	} else {
-		panic("invalid number")
+		panic(SyntaxError{"invalid number"})
 	}
 }
 

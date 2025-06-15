@@ -36,7 +36,11 @@ type (
 	}
 )
 
-var Nil NilType
+var (
+	Nil   NilType
+	False Boolean = false
+	True  Boolean = true
+)
 
 func (NilType) String() string { return "#nil" }
 func (b Boolean) String() string {
@@ -71,7 +75,7 @@ func (a Atomic) Exec(ctx *LocalScope) any {
 	if val, ok := ctx.Get(a); ok {
 		return val
 	} else {
-		panic(fmt.Errorf("symbol '%s' not found", a))
+		panic(UnboundError{a})
 	}
 }
 

@@ -86,7 +86,7 @@ func MapConsUnfold(fn func(any) (any, bool), a any) any {
 			return head
 		} else {
 			if !IsEmptyList(rest) {
-				panic("error unpacking smth like (x y . z ...)")
+				panic(ExecError{"error unpacking smth like (x y . z ...)"})
 			}
 			return head
 		}

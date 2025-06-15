@@ -187,7 +187,8 @@ func info(args any) string {
 
 func (expr *ConsCell) Exec(l *LocalScope) any { // (appl ... args)
 	if IsNil(expr) {
-		panic("empty list is not valid")
+		// panic(SyntaxError{"empty list is not valid"})
+		return EmptyList
 	}
 
 	appl, args := expr.Car(), expr.Cdr()
@@ -213,11 +214,7 @@ func (e Expr) Exec(ctx *LocalScope) any {
 		return e.sexp.Exec(ctx)
 	} else {
 		if sym, ok := e.atom.(Atomic); ok {
-			if val, ok := ctx.Get(sym); ok {
-				return val
-			} else {
-				panic(fmt.Errorf("symbol '%s' not found", sym))
-			}
+			return sym.Exec(ctx)
 		} else if q, ok := e.atom.(Quoted); ok {
 			// fmt.Println(reflect.TypeOf(e.atom), e.atom, "->", reflect.TypeOf(q.boxed), q)
 			return q.Exec(ctx)

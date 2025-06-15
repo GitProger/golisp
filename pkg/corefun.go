@@ -13,7 +13,7 @@ func init() {
 
 func Define(ctx *LocalScope, args Pair) { // Pair of Expr
 	if IsNil(args) { // (define)
-		panic("define: wrong syntax")
+		panic(SyntaxError{"define: wrong syntax"})
 	}
 
 	if IsEmptyList(args.Cdr()) { // nil: (define x)
@@ -55,7 +55,7 @@ func Lambda(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 				}
 
 				if !IsEmptyList(cons) {
-					panic("too many arguments")
+					panic(TooManyArguments)
 				}
 			} else if argNames.atom != nil { // (lambda x ...)
 				// argNames.atom is nil in case of (lambda () ...) or (lambda nil ...)
@@ -72,8 +72,8 @@ func Lambda(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
 }
 
 func RegisterBasicForms(global *LocalScope) {
-	global.Set("true", Boolean(true))
-	global.Set("false", Boolean(false))
+	global.Set("true", True)
+	global.Set("false", False)
 
 	global.Set("car", Func{args: ExprOfAny(ConsList[Atomic]("l")),
 		fn: func(ls *LocalScope, args Pair) any {
@@ -153,7 +153,7 @@ func RegisterBasicForms(global *LocalScope) {
 			name := p.Car().(Atomic)
 			value := p.Cdr().(Pair).Car()
 			if !ls.Update(name, ExprOfAny(value).Exec(ls)) { // in `!ls.Update(name, value)` value is atom|cons, not evaluated as set! is a macro
-				panic("set!: undefined symbol '" + name + "'")
+				panic(UnboundError{name})
 			}
 			return nil
 		},
@@ -233,7 +233,7 @@ func RegisterBasicForms(global *LocalScope) {
 				return ExprOfAny(t).Exec(ls)
 			} else if !IsEmptyList(f) {
 				if !IsEmptyList(f.(Pair).Cdr()) {
-					panic("if: wrong syntax")
+					panic(SyntaxError{"if: wrong syntax"})
 				}
 				return ExprOfAny(f.(Pair).Car()).Exec(ls)
 			}
@@ -301,57 +301,56 @@ func RegisterBasicForms(global *LocalScope) {
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1] != a[i] {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
 
 	global.Set("=", Func{fn: func(ls *LocalScope, p Pair) any { // scalars only, lists are compares as refs
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1].(Number) != a[i].(Number) {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
 
 	global.Set("<", Func{fn: func(ls *LocalScope, p Pair) any {
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1].(Number) >= a[i].(Number) {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
 	global.Set("<=", Func{fn: func(ls *LocalScope, p Pair) any {
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1].(Number) > a[i].(Number) {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
 	global.Set(">", Func{fn: func(ls *LocalScope, p Pair) any {
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1].(Number) <= a[i].(Number) {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
 	global.Set(">=", Func{fn: func(ls *LocalScope, p Pair) any {
 		a := ConsToGoList(p)
 		for i := range a {
 			if i > 0 && a[i-1].(Number) < a[i].(Number) {
-				return Boolean(false)
+				return False
 			}
 		}
-		return Boolean(true)
+		return True
 	}})
-
 }
