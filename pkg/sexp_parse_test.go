@@ -19,9 +19,7 @@ func TestEmpty(t *testing.T) {
 
 func Test_basicParse_Number_1(t *testing.T) {
 	s := ParseSExpString("123")
-	if s.atom.(Number) != Number(123) {
-		t.Errorf("not eq: %f", s.atom)
-	}
+	assert.Equal(t, s.atom.(Number), Number(123))
 }
 
 func Test_basicParse_String(t *testing.T) {
@@ -35,11 +33,8 @@ func Test_basicParse_String(t *testing.T) {
 		{`"\thi🙂\n"`, "\thi🙂\n"},
 	} {
 		actual := ParseSExpString(test.val)
-		if actualStr, ok := actual.atom.(RawString); !ok {
-			t.Errorf("not a string: %v", actual)
-		} else if actualStr != test.res {
-			t.Errorf(`expected "%s", got "%s"`, test.res, actualStr)
-		}
+		assert.IsType(t, RawString(""), actual.atom)
+		assert.Equal(t, test.res, actual.atom.(RawString))
 	}
 }
 
@@ -50,23 +45,11 @@ func Test_basicParse_Keyword(t *testing.T) {
 	}{
 		{`:hello`, "hello"},
 		{`:f5`, "f5"},
-		{`:привет`, ""},
+		{`:привет`, "привет"},
 	} {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					if test.res != "" {
-						t.Errorf("unexpected exception")
-					}
-				}
-			}()
-			actual := ParseSExpString(test.val)
-			if actualStr, ok := actual.atom.(Keyword); !ok {
-				t.Errorf("not a keyword: %v", actual)
-			} else if actualStr != test.res {
-				t.Errorf(`expected "%s", got "%s"`, test.res, actualStr)
-			}
-		}()
+		actual := ParseSExpString(test.val)
+		assert.IsType(t, Keyword(""), actual.atom)
+		assert.Equal(t, test.res, actual.atom.(Keyword))
 	}
 }
 
@@ -77,9 +60,7 @@ func Test_basicParse_SExpr(t *testing.T) {
 	)
 	sexp := ParseSExpString(code)
 	res := sexp.String()
-	if res != parsed.String() {
-		t.Errorf("Not equal, expected:\n%s\ngot:\n%s\n", parsed.String(), res)
-	}
+	assert.Equal(t, parsed.String(), res)
 }
 
 func Test_basicParse_Lists(t *testing.T) {
@@ -99,21 +80,9 @@ func Test_basicParse_Lists(t *testing.T) {
 		{`(1 2 . (4 5))`, ConsList[Number](1, 2, 4, 5)},
 		{`(1 2 . (4 5 . 6))`, ConsListDotted[Number](1, 2, 4, 5, 6)},
 	} {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					if test.res != "" {
-						t.Errorf("unexpected exception")
-					}
-				}
-			}()
-			actual := ParseSExpString(test.val)
-			if !actual.isSExpr {
-				t.Errorf("not a list: %v", actual)
-			} else if toStr(actual) != toStr(test.res) {
-				t.Errorf(`expected "%s", got "%s"`, test.res, actual)
-			}
-		}()
+		actual := ParseSExpString(test.val)
+		assert.True(t, actual.isSExpr)
+		assert.Equal(t, toStr(test.res), toStr(actual))
 	}
 }
 
@@ -125,10 +94,7 @@ func Test_basicParse_SExpr_2(t *testing.T) {
 		parsed = Cons(Atomic("a"), Cons(Atomic("b"), Atomic("c")))
 	)
 	sexp := ParseSExpString(code)
-	res := sexp.String()
-	if res != parsed.String() {
-		t.Errorf("Not equal, expected:\n%s\ngot:\n%s\n", parsed.String(), res)
-	}
+	assert.Equal(t, parsed.String(), sexp.String())
 }
 
 var factorial_code = `
@@ -149,10 +115,7 @@ var factorial = Cons(
 
 func Test_basicParse_Function_factorial(t *testing.T) {
 	sexp := ParseSExpString(factorial_code)
-	res := sexp.String()
-	if res != factorial.String() {
-		t.Errorf("Not equal, expected:\n%s\ngot:\n%s\n", factorial.String(), res)
-	}
+	assert.Equal(t, factorial.String(), sexp.String())
 }
 
 // 	sexp := ParseSExpString(`'(1 2 3 nil ())`)

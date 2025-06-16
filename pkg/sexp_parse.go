@@ -6,6 +6,7 @@ import (
 	"golisp/parsing"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // token stream -> lisp AST
@@ -151,10 +152,17 @@ func (s *SExpParser) parseValue() any {
 	}
 }
 
+func (parser *SExpParser) consumeLineTillEnd() {
+	for !parser.Take('\n') {
+		parser.TakeNext()
+	}
+}
+
 func (parser *SExpParser) parseIdent() Atomic {
 	var sb strings.Builder
 	good := func() bool {
-		return parser.Between('a', 'z') || parser.Between('A', 'Z') || parser.From("~!@#%^&*-_+={}/<>?") // : (keyword may be #:x or ':x)
+		return parser.Between('a', 'z') || parser.Between('A', 'Z') || parser.From("~!@#%^&*-_+={}/<>?") || // : (keyword may be #:x or ':x)
+			parser.Is(unicode.IsLetter)
 	}
 	// ,.:;'"\|$ special symbols
 	if good() {
@@ -164,6 +172,7 @@ func (parser *SExpParser) parseIdent() Atomic {
 		sb.WriteRune(parser.TakeNext())
 	}
 	if sb.Len() == 0 {
+		parser.consumeLineTillEnd()
 		panic(SyntaxError{"wrong identifier format"})
 	}
 	return Atomic(sb.String())
@@ -192,6 +201,8 @@ func (parser *SExpParser) parseKeyword() Keyword {
 func (parser *SExpParser) parseList(end rune) *ConsCell /* any */ {
 	dot := false
 	var list []any
+
+	parser.skipWhitespaces() // `'(  )` -> ()
 	for !parser.Take(end) {
 		list = append(list, parser.parseElement())
 		if parser.skipWhitespaces(); parser.Take('.') {
@@ -337,9 +348,7 @@ func (parser *SExpParser) skipComment() {
 	// 	}
 	// }
 	for parser.Take(';') {
-		for !parser.Take('\n') {
-			parser.TakeNext()
-		}
+		parser.consumeLineTillEnd()
 		parser.skipWhitespaces()
 	}
 }
