@@ -192,7 +192,7 @@ func (expr *ConsCell) Exec(l *LocalScope) any { // (appl ... args)
 	}
 
 	appl, args := expr.Car(), expr.Cdr()
-	if fn, callable := ExprOfAny(appl).Exec(l).(Func); !callable {
+	if fn, callable := ExprOfAny(appl).Exec(l).(*Func); !callable {
 		panic(fmt.Errorf(`<%s> of type <%s> is not applicable`, appl, TypeOf(appl)))
 	} else {
 		if fn.macro {

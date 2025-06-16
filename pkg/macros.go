@@ -98,8 +98,8 @@ func Macroexpand(syntax Expr) any {
 	}
 }
 
-func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) Func {
-	return Func{
+func Macro(defCtx *LocalScope, argNames Expr, es ...Expr) *Func {
+	return &Func{
 		macro: true,
 		args:  argNames,
 		code:  es,
@@ -157,7 +157,7 @@ func Defmacro(ctx *LocalScope, name Atomic, argNames Expr, es ...Expr) {
 }
 
 func registerMacros(global *LocalScope) {
-	global.Set("defmacro", Func{ // (defmacro name (params...) code...)
+	global.Set("defmacro", &Func{ // (defmacro name (params...) code...)
 		macro: true,
 		fn: func(ls *LocalScope, p Pair) any {
 			// eval generated code from macroexpand
@@ -173,7 +173,7 @@ func registerMacros(global *LocalScope) {
 		},
 	})
 
-	global.Set("macroexpand", Func{
+	global.Set("macroexpand", &Func{
 		args: ExprOfAny(ConsList[Atomic]("code")),
 		fn: func(ls *LocalScope, p Pair) any {
 			fmt.Println(p.Car())
@@ -184,7 +184,7 @@ func registerMacros(global *LocalScope) {
 		},
 	})
 
-	global.Set("unquote", Func{
+	global.Set("unquote", &Func{
 		macro: true,
 		args:  ExprOfAny(ConsList[Atomic]("quasiquoted")),
 		fn: func(ls *LocalScope, p Pair) any {
@@ -192,14 +192,14 @@ func registerMacros(global *LocalScope) {
 		},
 	})
 
-	global.Set("unquote-splicing", Func{
+	global.Set("unquote-splicing", &Func{
 		macro: true,
 		fn: func(ls *LocalScope, p Pair) any {
 			return UnquotedSpliced{ExprOfAny(p.Car().(*ConsCell))}
 		},
 	})
 
-	global.Set("quasiquote", Func{
+	global.Set("quasiquote", &Func{
 		macro: true,
 		fn: func(ls *LocalScope, p Pair) any {
 			return Quasiquote(p.Car())

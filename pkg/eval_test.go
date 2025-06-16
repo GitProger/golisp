@@ -55,7 +55,7 @@ func Test_exec6(t *testing.T) {
 
 func Test_exec7(t *testing.T) {
 	sexp := ParseSExpString(`if`)
-	assert.Equal(t, true, sexp.Exec(Global).(Func).macro)
+	assert.Equal(t, true, sexp.Exec(Global).(*Func).macro)
 }
 
 func captureOutput(main func(), testOutput func(string)) {
